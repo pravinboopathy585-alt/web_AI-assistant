@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Voice Assistant</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0f0f0f;
+    --bg2: #1a1a1a;
+    --bg3: #242424;
+    --border: rgba(255,255,255,0.08);
+    --text: #f0f0f0;
+    --text2: #999;
+    --accent: #7c6af7;
+    --accent2: #a89ff9;
+    --user-bubble: #1e1b4b;
+    --bot-bubble: #1a1a1a;
+    --green: #22c55e;
+    --red: #ef4444;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg2);
+    flex-shrink: 0;
+  }
+  .header-icon {
+    width: 36px; height: 36px;
+    background: linear-gradient(135deg, var(--accent), #9f7aea);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  .header-title { font-size: 16px; font-weight: 600; }
+  .header-sub { font-size: 12px; color: var(--text2); margin-top: 1px; }
+  .status-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--green);
+    margin-left: auto;
+    box-shadow: 0 0 6px var(--green);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* Chat Area */
+  .chat-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--bg3) transparent;
+  }
+  .chat-area::-webkit-scrollbar { width: 4px; }
+  .chat-area::-webkit-scrollbar-thumb { background: var(--bg3); border-radius: 4px; }
+
+  .msg {
+    display: flex;
+    gap: 10px;
+    max-width: 75%;
+    animation: fadeIn 0.2s ease;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .msg.user { margin-left: auto; flex-direction: row-reverse; }
+  .msg.bot { margin-right: auto; }
+
+  .avatar {
+    width: 32px; height: 32px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; flex-shrink: 0;
+    background: var(--bg3);
+  }
+  .msg.user .avatar { background: var(--accent); }
+
+  .bubble {
+    padding: 10px 14px;
+    border-radius: 14px;
+    font-size: 14px;
+    line-height: 1.5;
+    max-width: 100%;
+  }
+  .msg.user .bubble {
+    background: var(--user-bubble);
+    border: 1px solid rgba(124,106,247,0.3);
+    border-top-right-radius: 4px;
+    color: var(--text);
+  }
+  .msg.bot .bubble {
+    background: var(--bot-bubble);
+    border: 1px solid var(--border);
+    border-top-left-radius: 4px;
+  }
+
+  /* Cards for notes/reminders */
+  .card-list {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .card-item {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+  .card-item .item-text { color: var(--text); }
+  .card-item .item-meta { color: var(--text2); font-size: 11px; margin-top: 3px; }
+
+  /* Typing indicator */
+  .typing { display: flex; gap: 4px; align-items: center; padding: 14px; }
+  .typing span {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--text2);
+    animation: bounce 1.2s infinite;
+  }
+  .typing span:nth-child(2) { animation-delay: 0.2s; }
+  .typing span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes bounce {
+    0%, 80%, 100% { transform: scale(0.7); opacity: 0.4; }
+    40% { transform: scale(1); opacity: 1; }
+  }
+
+  /* Bottom Bar */
+  .bottom-bar {
+    padding: 16px 24px;
+    border-top: 1px solid var(--border);
+    background: var(--bg2);
+    flex-shrink: 0;
+  }
+
+  /* Quick Commands */
+  .quick-cmds {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  .quick-btn {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 5px 12px;
+    font-size: 12px;
+    color: var(--text2);
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .quick-btn:hover {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+  }
+
+  /* Input Row */
+  .input-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  .text-input {
+    flex: 1;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 10px 18px;
+    font-size: 14px;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .text-input:focus { border-color: var(--accent); }
+  .text-input::placeholder { color: var(--text2); }
+
+  .btn {
+    width: 42px; height: 42px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+  .send-btn {
+    background: var(--accent);
+    color: white;
+    font-size: 16px;
+  }
+  .send-btn:hover { background: var(--accent2); transform: scale(1.05); }
+
+  .mic-btn {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--text2);
+    font-size: 18px;
+  }
+  .mic-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .mic-btn.listening {
+    background: var(--red);
+    border-color: var(--red);
+    color: white;
+    animation: micPulse 1s infinite;
+  }
+  @keyframes micPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.4); }
+    50% { box-shadow: 0 0 0 8px rgba(239,68,68,0); }
+  }
+
+  /* Voice wave indicator */
+  .voice-status {
+    text-align: center;
+    font-size: 12px;
+    color: var(--text2);
+    margin-top: 8px;
+    min-height: 18px;
+  }
+  .voice-status.active { color: var(--red); }
+
+  /* Welcome message style */
+  .welcome { text-align: center; padding: 40px 20px; color: var(--text2); }
+  .welcome .big-icon { font-size: 48px; margin-bottom: 12px; }
+  .welcome h2 { color: var(--text); font-size: 20px; margin-bottom: 8px; }
+  .welcome p { font-size: 13px; line-height: 1.6; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-icon">🎙️</div>
+  <div>
+    <div class="header-title">Voice Assistant</div>
+    <div class="header-sub">Powered by Python + Flask</div>
+  </div>
+  <div class="status-dot" id="statusDot"></div>
+</div>
+
+<!-- Chat Area -->
+<div class="chat-area" id="chatArea">
+  <div class="welcome">
+    <div class="big-icon">🤖</div>
+    <h2>Hello! I'm your Voice Assistant</h2>
+    <p>Mic button press பண்ணி பேசுங்க, அல்லது type பண்ணுங்க.<br/>
+    நான் time, notes, reminders, weather, Wikipedia எல்லாம் சொல்வேன்!</p>
+  </div>
+</div>
+
+<!-- Bottom Bar -->
+<div class="bottom-bar">
+  <div class="quick-cmds">
+    <button class="quick-btn" onclick="sendText('What is the time')">⏰ Time</button>
+    <button class="quick-btn" onclick="sendText('What is today date')">📅 Date</button>
+    <button class="quick-btn" onclick="sendText('Show my notes')">📝 Notes</button>
+    <button class="quick-btn" onclick="sendText('Show my reminders')">🔔 Reminders</button>
+    <button class="quick-btn" onclick="sendText('What can you do')">❓ Help</button>
+  </div>
+  <div class="input-row">
+    <button class="btn mic-btn" id="micBtn" onclick="toggleVoice()" title="Voice Input">🎤</button>
+    <input class="text-input" id="textInput" placeholder="Type a command or press 🎤 to speak..."
+           onkeydown="if(event.key==='Enter') sendText()"/>
+    <button class="btn send-btn" onclick="sendText()" title="Send">➤</button>
+  </div>
+  <div class="voice-status" id="voiceStatus"></div>
+</div>
+
+<script>
+const chatArea = document.getElementById('chatArea');
+const textInput = document.getElementById('textInput');
+const micBtn = document.getElementById('micBtn');
+const voiceStatus = document.getElementById('voiceStatus');
+
+let recognition = null;
+let isListening = false;
+let pendingAction = null;
+let synth = window.speechSynthesis;
+
+// ---------- Speech Synthesis (TTS) ---------- //
+function speak(text) {
+  synth.cancel();
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.lang = 'en-IN';
+  utter.rate = 1.0;
+  utter.pitch = 1.0;
+  const voices = synth.getVoices();
+  const preferred = voices.find(v => v.lang === 'en-IN') ||
+                    voices.find(v => v.lang.startsWith('en')) || voices[0];
+  if (preferred) utter.voice = preferred;
+  synth.speak(utter);
+}
+
+// ---------- Chat UI ---------- //
+function addMessage(text, sender, extraHTML = '') {
+  const welcome = chatArea.querySelector('.welcome');
+  if (welcome) welcome.remove();
+
+  const div = document.createElement('div');
+  div.className = `msg ${sender}`;
+
+  const avatar = document.createElement('div');
+  avatar.className = 'avatar';
+  avatar.textContent = sender === 'user' ? '👤' : '🤖';
+
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  bubble.textContent = text;
+  if (extraHTML) {
+    const extra = document.createElement('div');
+    extra.innerHTML = extraHTML;
+    bubble.appendChild(extra);
+  }
+
+  div.appendChild(avatar);
+  div.appendChild(bubble);
+  chatArea.appendChild(div);
+  chatArea.scrollTop = chatArea.scrollHeight;
+}
+
+function showTyping() {
+  const div = document.createElement('div');
+  div.className = 'msg bot';
+  div.id = 'typingIndicator';
+  div.innerHTML = '<div class="avatar">🤖</div><div class="bubble"><div class="typing"><span></span><span></span><span></span></div></div>';
+  chatArea.appendChild(div);
+  chatArea.scrollTop = chatArea.scrollHeight;
+}
+
+function removeTyping() {
+  const t = document.getElementById('typingIndicator');
+  if (t) t.remove();
+}
+
+function buildListHTML(items, type) {
+  if (!items || items.length === 0) return '';
+  let html = '<div class="card-list">';
+  items.forEach((item, i) => {
+    if (type === 'notes') {
+      html += `<div class="card-item"><div class="item-text">📝 ${item.text}</div><div class="item-meta">${item.created || ''}</div></div>`;
+    } else {
+      html += `<div class="card-item"><div class="item-text">🔔 ${item.text}</div><div class="item-meta">⏰ ${item.when}</div></div>`;
+    }
+  });
+  html += '</div>';
+  return html;
+}
+
+// ---------- Send Command ---------- //
+async function sendText(forcedText) {
+  const cmd = forcedText || textInput.value.trim();
+  if (!cmd) return;
+  textInput.value = '';
+
+  addMessage(cmd, 'user');
+  showTyping();
+
+  try {
+    const res = await fetch('/command', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ command: cmd, extra: '' })
+    });
+    const data = await res.json();
+    removeTyping();
+
+    let extraHTML = '';
+    if (data.action === 'show_notes' && data.action_data) {
+      extraHTML = buildListHTML(data.action_data, 'notes');
+    } else if (data.action === 'show_reminders' && data.action_data) {
+      extraHTML = buildListHTML(data.action_data, 'reminders');
+    } else if (data.action === 'open_url' && data.action_data) {
+      window.open(data.action_data, '_blank');
+    } else if (data.action === 'ask_note') {
+      pendingAction = 'note';
+    } else if (data.action === 'ask_reminder') {
+      pendingAction = 'reminder';
+    } else if (data.action === 'ask_weather') {
+      pendingAction = 'weather';
+    } else if (data.action === 'exit') {
+      setTimeout(() => {
+        addMessage("Session ended. Refresh the page to start again.", 'bot');
+      }, 1000);
+    }
+
+    addMessage(data.reply, 'bot', extraHTML);
+    speak(data.reply);
+
+    // Handle pending actions
+    if (pendingAction) {
+      handlePendingAction();
+    }
+
+  } catch (err) {
+    removeTyping();
+    addMessage("Server error. Is the Flask app running?", 'bot');
+  }
+}
+
+function handlePendingAction() {
+  const action = pendingAction;
+  pendingAction = null;
+
+  if (action === 'note') {
+    textInput.placeholder = 'Type your note here...';
+    textInput.focus();
+    textInput.onkeydown = (e) => {
+      if (e.key === 'Enter' && textInput.value.trim()) {
+        const note = textInput.value.trim();
+        textInput.placeholder = 'Type a command or press 🎤 to speak...';
+        textInput.onkeydown = (ev) => { if(ev.key==='Enter') sendText(); };
+        sendCommand('take a note', note);
+      }
+    };
+  } else if (action === 'reminder') {
+    textInput.placeholder = 'e.g. drink water at 5 PM...';
+    textInput.focus();
+    textInput.onkeydown = (e) => {
+      if (e.key === 'Enter' && textInput.value.trim()) {
+        const reminder = textInput.value.trim();
+        textInput.placeholder = 'Type a command or press 🎤 to speak...';
+        textInput.onkeydown = (ev) => { if(ev.key==='Enter') sendText(); };
+        sendCommand('remind me ' + reminder, '');
+      }
+    };
+  } else if (action === 'weather') {
+    textInput.placeholder = 'Enter city name...';
+    textInput.focus();
+    textInput.onkeydown = (e) => {
+      if (e.key === 'Enter' && textInput.value.trim()) {
+        const city = textInput.value.trim();
+        textInput.placeholder = 'Type a command or press 🎤 to speak...';
+        textInput.onkeydown = (ev) => { if(ev.key==='Enter') sendText(); };
+        sendCommand('weather in ' + city, city);
+      }
+    };
+  }
+}
+
+async function sendCommand(command, extra) {
+  addMessage(command, 'user');
+  showTyping();
+  try {
+    const res = await fetch('/command', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ command, extra })
+    });
+    const data = await res.json();
+    removeTyping();
+    addMessage(data.reply, 'bot');
+    speak(data.reply);
+  } catch (err) {
+    removeTyping();
+    addMessage("Server error.", 'bot');
+  }
+}
+
+// ---------- Voice Input (STT) ---------- //
+function setupRecognition() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) return null;
+
+  const r = new SpeechRecognition();
+  r.lang = 'en-IN';
+  r.continuous = false;
+  r.interimResults = true;
+
+  r.onstart = () => {
+    isListening = true;
+    micBtn.classList.add('listening');
+    micBtn.textContent = '⏹';
+    voiceStatus.textContent = '🔴 Listening... speak now';
+    voiceStatus.classList.add('active');
+  };
+
+  r.onresult = (e) => {
+    let interim = '';
+    let final = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) final += e.results[i][0].transcript;
+      else interim += e.results[i][0].transcript;
+    }
+    textInput.value = final || interim;
+    if (final) {
+      voiceStatus.textContent = '✅ Got it!';
+      setTimeout(() => sendText(), 300);
+    }
+  };
+
+  r.onerror = (e) => {
+    voiceStatus.textContent = e.error === 'no-speech' ? '⚠️ No speech detected' : '❌ Mic error: ' + e.error;
+    voiceStatus.classList.remove('active');
+    resetMic();
+  };
+
+  r.onend = () => {
+    resetMic();
+    if (!textInput.value) {
+      voiceStatus.textContent = 'Press 🎤 to speak';
+      setTimeout(() => { voiceStatus.textContent = ''; }, 2000);
+    }
+  };
+
+  return r;
+}
+
+function resetMic() {
+  isListening = false;
+  micBtn.classList.remove('listening');
+  micBtn.textContent = '🎤';
+  voiceStatus.classList.remove('active');
+}
+
+function toggleVoice() {
+  if (!recognition) {
+    recognition = setupRecognition();
+    if (!recognition) {
+      voiceStatus.textContent = '❌ Browser does not support voice input (use Chrome)';
+      return;
+    }
+  }
+  if (isListening) {
+    recognition.stop();
+  } else {
+    textInput.value = '';
+    recognition.start();
+  }
+}
+
+// Load voices on init
+window.speechSynthesis.onvoiceschanged = () => {};
+
+// Initial greeting on load
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    const hour = new Date().getHours();
+    const g = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+    addMessage(`${g}! I'm your Voice Assistant. Press the 🎤 button to speak, or type your command below!`, 'bot');
+    speak(`${g}! I'm your voice assistant. How can I help you?`);
+  }, 500);
+});
+</script>
+</body>
+</html>
